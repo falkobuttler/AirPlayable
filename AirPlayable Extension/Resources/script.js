@@ -1,5 +1,19 @@
 let currentVideoElements = new Set();
 
+// Ensure video (not just audio) is allowed to route over AirPlay.
+// Wireless audio is always permitted, but video is opt-out: many sites/players
+// disable it, which causes AirPlay to transfer only the audio. Applying this to
+// every video as it appears means that when a new page's video auto-connects to
+// an already-active AirPlay route, the video streams too — without needing to
+// open the picker first.
+function enableVideoAirplay(video) {
+  video.setAttribute("x-webkit-airplay", "allow");
+  video.removeAttribute("x-webkit-wirelessvideoplaybackdisabled");
+  try {
+    video.webkitWirelessVideoPlaybackDisabled = false;
+  } catch (e) {}
+}
+
 function airplay() {
   if (!window.WebKitPlaybackTargetAvailabilityEvent) return;
   if (currentVideoElements.size === 0) return;
@@ -16,15 +30,8 @@ function airplay() {
   // If no active video is found, use the first video in the set
   activeVideo = activeVideo || currentVideoElements.values().next().value;
 
-  // Ensure video (not just audio) is allowed to route over AirPlay.
-  // Wireless audio is always permitted, but video is opt-out: many sites/players
-  // disable it, which causes AirPlay to transfer only the audio. Re-enable it
-  // on the target element before showing the picker.
-  activeVideo.setAttribute("x-webkit-airplay", "allow");
-  activeVideo.removeAttribute("x-webkit-wirelessvideoplaybackdisabled");
-  try {
-    activeVideo.webkitWirelessVideoPlaybackDisabled = false;
-  } catch (e) {}
+  // Re-assert video routing on the target before showing the picker.
+  enableVideoAirplay(activeVideo);
 
   // Show the AirPlay target picker
   activeVideo.webkitShowPlaybackTargetPicker();
@@ -38,6 +45,13 @@ function handleMessage(event) {
 
 function updateVideoElements() {
   const newVideoElements = new Set(document.getElementsByTagName("video"));
+
+  // Enable video AirPlay on every current video so a new page's video routes
+  // automatically when it connects to an already-active AirPlay session.
+  for (let video of newVideoElements) {
+    enableVideoAirplay(video);
+  }
+
   const isDifferent =
     newVideoElements.size !== currentVideoElements.size ||
     Array.from(newVideoElements).some(
@@ -62,3 +76,6 @@ window.addEventListener("beforeunload", handlePageUnload);
 
 const observer = new MutationObserver(updateVideoElements);
 observer.observe(document, { childList: true, subtree: true });
+
+// Enable video AirPlay on any videos already present when the script loads.
+updateVideoElements();
