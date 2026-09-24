@@ -16,6 +16,16 @@ function airplay() {
   // If no active video is found, use the first video in the set
   activeVideo = activeVideo || currentVideoElements.values().next().value;
 
+  // Ensure video (not just audio) is allowed to route over AirPlay.
+  // Wireless audio is always permitted, but video is opt-out: many sites/players
+  // disable it, which causes AirPlay to transfer only the audio. Re-enable it
+  // on the target element before showing the picker.
+  activeVideo.setAttribute("x-webkit-airplay", "allow");
+  activeVideo.removeAttribute("x-webkit-wirelessvideoplaybackdisabled");
+  try {
+    activeVideo.webkitWirelessVideoPlaybackDisabled = false;
+  } catch (e) {}
+
   // Show the AirPlay target picker
   activeVideo.webkitShowPlaybackTargetPicker();
 }
